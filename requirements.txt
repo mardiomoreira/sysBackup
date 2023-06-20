@@ -1,0 +1,16 @@
+altgraph==0.17.3
+certifi==2023.5.7
+charset-normalizer==3.1.0
+cx-Logging==3.1.0
+idna==3.4
+lief==0.13.1
+patool==1.12
+pefile==2023.2.7
+Pillow==9.5.0
+pyinstaller==5.12.0
+pyinstaller-hooks-contrib==2023.3
+pywin32==306
+pywin32-ctypes==0.2.0
+tkinter-tooltip==2.1.0
+urllib3==2.0.3
+wget==3.2
