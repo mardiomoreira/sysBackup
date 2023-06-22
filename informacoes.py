@@ -32,9 +32,9 @@ def capturar_informacoes_rclone():
         return None, None, None
 
 # Exemplo de uso
-# if __name__ == '__main__':
-#     total, used, free = capturar_informacoes_rclone()
-#     if total is not None and used is not None and free is not None:
-#         print('Total:', total)
-#         print('Used:', used)
-#         print('Free:', free)
+if __name__ == '__main__':
+    total, used, free = capturar_informacoes_rclone()
+    if total is not None and used is not None and free is not None:
+        print('Total:', total)
+        print('Used:', used)
+        print('Free:', free)

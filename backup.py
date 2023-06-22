@@ -43,6 +43,7 @@ class DirectorySelector:
         self.menu_arquivo.add_command(label="Carregar padrao", command=self.fill_directory_column)
         self.menu_arquivo.add_command(label="Instalar Rclone", command=self.download_rclone_thread)
         self.menu_arquivo.add_command(label="Configurar Usuario/senha", command=self.config_rclone)
+        self.menu_arquivo.add_command(label="Calcular", command=self.calcular_tamanho_diretorios_treeview)        
         
         # Adicionar o item de menu à barra de menu
         self.barra_menu.add_cascade(label="Configuração", menu=self.menu_arquivo)
@@ -228,34 +229,40 @@ class DirectorySelector:
         botao.bind("<Enter>", mostrar_aviso)
         botao.bind("<Leave>", remover_aviso)
 
-    def capturar_diretorios(self):
+    def enviar_diretorios(self):
         # Função para baixar capturar as informações da treeview e enviar para o mega
-        self.data_atual = datetime.datetime.now().strftime("%d%m%Y")
-        self.pasta_mega = f"mega:BACKUP/{self.data_atual}"
-        if not self.treeview.get_children():
-            messagebox.showinfo("Tabela Vazia", "A Tabela está vazia.", parent=self.root)
-            return []
+        tamanho_bkp, livre_mega=self.calcular_tamanho_diretorios_treeview()
+#Validando o espaço disponível ne nuvem com o tamanho do bakup
+        if livre_mega < tamanho_bkp:
 
-        # Enviar diretorios para o MEGA via rclone
-        diretorios = []
-        for item in self.treeview.get_children():
-            diretorio = self.treeview.item(item)["values"][1]
-            pasta_unica = diretorio.split('/')[-1]
-            pasta_mega = f'{self.pasta_mega}/{pasta_unica}'
-            self.Aviso(mensagem=f'Enviando a pasta {pasta_unica.upper()}', cor='#32CD32')
-            print(f'{diretorio} | {pasta_mega}')
-            enviado = enviar_diretorio_para_mega(diretorio=diretorio, pasta_mega=pasta_mega)
-            if enviado == True:
-                self.Sucesso(mensagem=f'Pasta {pasta_unica.upper()} enviada com Sucesso!!!', cor='#32CD32')
-                sleep(2)  # import time
-                messagebox.showinfo(title='Sucesso!!!',message='Backup realizado com Sucesso!!!', parent=self.root)
-            else:
-                messagebox.showerror(title='Erro!!!',message='Problema ao realizar Backup\n Favor fazer as verificações no menu configuraçoes', parent=self.root)
-        
+            messagebox.showerror(title='Espaço insuficiente',message='A quantidade de espaço disponível na nuvem é\nmenor que o tamanho do seu backup. Por favor,\nexclua backups antigos ou adquira mais espaço.')
+        else:
+            self.data_atual = datetime.datetime.now().strftime("%d%m%Y")
+            self.pasta_mega = f"mega:BACKUP/{self.data_atual}"
+            if not self.treeview.get_children():
+                messagebox.showinfo("Tabela Vazia", "A Tabela está vazia.", parent=self.root)
+                return []
+
+            # Enviar diretorios para o MEGA via rclone
+            diretorios = []
+            for item in self.treeview.get_children():
+                diretorio = self.treeview.item(item)["values"][1]
+                pasta_unica = diretorio.split('/')[-1]
+                pasta_mega = f'{self.pasta_mega}/{pasta_unica}'
+                self.Aviso(mensagem=f'Enviando a pasta {pasta_unica.upper()}', cor='#32CD32')
+                print(f'{diretorio} | {pasta_mega}')
+                enviado = enviar_diretorio_para_mega(diretorio=diretorio, pasta_mega=pasta_mega)
+                if enviado == True:
+                    self.Sucesso(mensagem=f'Pasta {pasta_unica.upper()} enviada com Sucesso!!!', cor='#32CD32')
+                    sleep(2)  # import time
+                    messagebox.showinfo(title='Sucesso!!!',message='Backup realizado com Sucesso!!!', parent=self.root)
+                else:
+                    messagebox.showerror(title='Erro!!!',message='Problema ao realizar Backup\n Favor fazer as verificações no menu configuraçoes', parent=self.root)
+            
     def enviar_nuvem_thread(self):
-        """Função enviar diretorios para o MEGA via rclone, executa a função capturar_diretorios 
+        """Função enviar diretorios para o MEGA via rclone, executa a função enviar_diretorios 
            numa thread separada da interface gráfica, assim não trava a tela"""
-        thread = Thread(target=self.capturar_diretorios)
+        thread = Thread(target=self.enviar_diretorios)
         thread.start()
 
     def select_directory(self):
@@ -273,6 +280,53 @@ class DirectorySelector:
             if directory:
                 self.treeview.insert("", "end", values=(self.item_counter, directory))
                 self.item_counter += 1
+
+    def calcular_tamanho_diretorio(self, caminho):
+        total = 0
+        with os.scandir(caminho) as it:
+            for entry in it:
+                if entry.is_file():
+                    total += entry.stat().st_size
+                elif entry.is_dir():
+                    total += self.calcular_tamanho_diretorio(entry.path)
+        return total
+
+    def adicionar_diretorio(self, item, diretorio):
+        self.treeview.insert("", "end", values=(item, diretorio))
+
+    def calcular_tamanho_diretorios_treeview(self):
+        if not self.treeview.get_children():
+            messagebox.showinfo("Validação", "A treeview está vazia. Não há diretórios para calcular o tamanho.")
+            return
+
+        total_tamanho = 0
+
+        for item_id in self.treeview.get_children():
+            diretorio = self.treeview.item(item_id)["values"][1]  # Obtém o valor da coluna "Diretório"
+            tamanho = self.calcular_tamanho_diretorio(diretorio)
+            total_tamanho += tamanho
+
+        # Imprime o valor em MB
+        total_tamanho_mb = total_tamanho / (1024 * 1024)
+        total_tamanho_gb=(total_tamanho_mb*0.001)
+        total_tamanho_gb='%.2f'% (total_tamanho_gb)
+        # print("Total de Tamanho de Todos os Diretórios (CB):", (total_tamanho_gb), "GB")
+        try:
+            total, used, free = capturar_informacoes_rclone()
+            livre=free.replace(' GiB','')
+            livre=float(livre)
+            livre='%.2f'% (livre)
+            total_tamanho_gb=float(total_tamanho_gb)
+            espaco_livre=float(livre)
+            return total_tamanho_gb, espaco_livre
+        except Exception as e:
+            return None,None,None
+        
+        # if total_tamanho_gb <= espaco_livre:
+        #     print("Há espaço suficiente na nuvem.")
+        # else:
+        #     print("Não há espaço suficiente na nuvem.")
+
 
     def delete_selected_row(self):
         # Função para deletar linhas seecionadas da treeview
