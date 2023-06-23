@@ -7,7 +7,7 @@ import subprocess
 
 def fechar_janela():
     janela.destroy()
-    caminho_arquivo = "backup.exe"
+    caminho_arquivo = "bkp.exe"
     processo = subprocess.Popen(caminho_arquivo)
     processo.wait()
 
